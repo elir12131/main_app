@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "Poppy's Produce",
+    "slug": "aura-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/logo.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-router"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.eliroitblat.auraapp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logoapp.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.eliroitblat.poppysproduce"
+    },
+    "web": {
+      "favicon": "./assets/logo.png",
+      "bundler": "metro",
+      "name": "Poppy's Produce",
+      "shortName": "Poppy's",
+      "description": "An app for ordering fresh produce.",
+      "lang": "en-US",
+      "startUrl": "/",
+      "display": "standalone",
+      "backgroundColor": "#ffffff",
+      "themeColor": "#2E7D32",
+      "splash": {
+        "image": "./assets/logo.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3ffd0f87-af9d-443a-b879-004bd81d4761"
+      }
+    },
+    "owner": "eliroitblat"
+  }
+}
