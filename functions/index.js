@@ -4,6 +4,7 @@ const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { HttpsError, onCall } = require("firebase-functions/v2/https");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 admin.initializeApp();
 
@@ -279,4 +280,75 @@ exports.sendOneHourWarning = functions.pubsub.schedule('0 20 * * *').timeZone('U
 
 exports.sendTenMinuteWarning = functions.pubsub.schedule('50 20 * * *').timeZone('UTC').onRun(context => {
     return sendWarningNotification(10);
+});
+
+
+
+// In functions/index.js, replace the entire askAI function with this:
+exports.askAI = onCall(async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) {
+        throw new HttpsError("unauthenticated", "You must be logged in.");
+    }
+
+    const geminiAPIKey = process.env.GEMINI_API_KEY;
+    if (!geminiAPIKey) {
+        throw new HttpsError("failed-precondition", "The function is missing an API key.");
+    }
+
+    const { prompt, context } = request.data;
+    if (!prompt) {
+        throw new HttpsError("invalid-argument", "The function must be called with a 'prompt'.");
+    }
+
+    try {
+        const firestore = admin.firestore();
+        let dataContext = "No relevant data found.";
+
+        // --- MODIFICATION: The AI is now context-aware ---
+        if (context && context.type === 'order' && context.id) {
+            // If the user is asking about a specific order, fetch only that order.
+            const orderDoc = await firestore.collection("orders").doc(context.id).get();
+            if (orderDoc.exists) {
+                const orderData = orderDoc.data();
+                // Format the data cleanly for the AI
+                dataContext = `The user is asking about Order #${orderData.publicOrderId}. 
+                Order Details:
+                - Date: ${orderData.createdAt.toDate().toLocaleDateString()}
+                - Status: ${orderData.status}
+                - Item Count: ${orderData.items.length}
+                - Items: ${orderData.items.map(item => `${item.quantity}x ${item.name}`).join(", ")}
+                - Notes: ${orderData.notes || 'None'}
+                `;
+            }
+        } else {
+            // Fallback for general questions: Fetch a summary of recent orders.
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const ordersQuery = firestore.collection("orders").where("userId", "==", uid).where("createdAt", ">", thirtyDaysAgo);
+            const ordersSnapshot = await ordersQuery.get();
+            const orders = ordersSnapshot.docs.map(doc => doc.data());
+
+            if (orders.length > 0) {
+                dataContext = `Here is a summary of the user's sales data for the last 30 days:
+                - Total Orders: ${orders.length}
+                - Customers Served: [...new Set(orders.map(o => o.subAccountName || o.userEmail))].length
+                `;
+            }
+        }
+
+        const fullPrompt = `You are an AI assistant for a produce company called Poppy's Produce. Analyze the following data context and answer the user's question. Be friendly and provide clear, concise reports.\n\nDATA CONTEXT:\n${dataContext}\n\nUSER'S QUESTION:\n"${prompt}"`;
+
+        const genAI = new GoogleGenerativeAI(geminiAPIKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent(fullPrompt);
+        const response = await result.response;
+        const text = response.text();
+
+        return { response: text };
+
+    } catch (error) {
+        console.error("Error in askAI function:", error);
+        throw new HttpsError("internal", error.message);
+    }
 });

@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
 import { auth, db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useSubAccount } from '../context/temp_context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
+import { Card, Button, Text } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+// --- MODIFICATION 1: Import LinearGradient ---
+import { LinearGradient } from 'expo-linear-gradient';
+
 
 const HomeScreen = ({ navigation }) => {
   const [userData, setUserData] = useState(null);
@@ -14,6 +18,7 @@ const HomeScreen = ({ navigation }) => {
   const { activeSubAccount, setActiveSubAccount } = useSubAccount();
 
   const fetchData = async () => {
+    // ... This function's logic remains the same ...
     setLoading(true);
     if (auth.currentUser) {
       const userDocRef = doc(db, "users", auth.currentUser.uid);
@@ -33,9 +38,6 @@ const HomeScreen = ({ navigation }) => {
         const data = settingsDoc.data();
         setSaleMessage(data.saleMessage || '');
         setFeaturedItems(data.featuredSaleItems || []);
-      } else {
-        setSaleMessage('');
-        setFeaturedItems([]);
       }
     } catch (error) { console.error("Could not fetch sale message:", error); }
     setLoading(false);
@@ -45,69 +47,139 @@ const HomeScreen = ({ navigation }) => {
 
   const handleSalePress = () => { if (featuredItems.length > 0) { navigation.navigate('Order', { prefillCart: featuredItems }); } };
 
-  if (loading) { return <View style={styles.centered}><ActivityIndicator size="large" color="#007AFF" /></View>; }
-
-  if (userData?.isParentAccount && !activeSubAccount) {
-    const subAccounts = userData.subAccounts || [];
-    return (
-      <View style={styles.container}>
-        <Text style={styles.welcomeText}>Select a Customer</Text>
-        <Text style={styles.emailText}>Logged in as {userData.username}</Text>
-        <TouchableOpacity 
-          style={styles.pickerButton} 
-          onPress={() => navigation.navigate('SubAccountPicker', { subAccounts })}
-        >
-          <Text style={styles.pickerButtonText}>Search and Select Customer</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.continueButton} 
-          onPress={() => setActiveSubAccount(userData.username || 'Main Account')}
-        >
-          <Text style={styles.continueButtonText}>Order for Main Account</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  if (loading) { return <View style={styles.centered}><ActivityIndicator size="large" /></View>; }
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text variant="headlineMedium" style={styles.welcomeText}>
+        Welcome, {userData?.username || auth.currentUser.email}
+      </Text>
+      {activeSubAccount && (
+        <Text variant="titleMedium" style={styles.subAccountText}>
+          Ordering for: {activeSubAccount}
+        </Text>
+      )}
+
+      {/* --- MODIFICATION 2: The entire sale section has been redesigned --- */}
       {featuredItems.length > 0 && (
-        <TouchableOpacity style={styles.saleBox} onPress={handleSalePress}>
-          <View style={styles.saleHeader}>
-            <Ionicons name="pricetag" size={24} color="#2E7D32" />
-            <Text style={styles.saleTitle}>{saleMessage || 'Featured Items'}</Text>
-          </View>
-          <View style={styles.saleItemsContainer}>
-            {featuredItems.map(item => (<Text key={item.id} style={styles.saleItemText}>• {item.name}</Text>))}
-          </View>
-          <Text style={styles.saleActionText}>Tap to add all items to cart!</Text>
+        <TouchableOpacity onPress={handleSalePress} style={styles.saleContainer}>
+          <LinearGradient
+            colors={['#4CAF50', '#2E7D32']} // A trendy green gradient
+            style={styles.gradient}
+          >
+            <View style={styles.saleHeader}>
+                <Ionicons name="sparkles" size={28} color="white" />
+                <Text variant="headlineSmall" style={styles.saleTitle}>{saleMessage || 'Featured Items'}</Text>
+            </View>
+            <View style={styles.saleItemsList}>
+                {featuredItems.map(item => (
+                    <View key={item.id} style={styles.saleItem}>
+                        <Ionicons name="checkmark-circle-outline" size={22} color="#C8E6C9" />
+                        <Text style={styles.saleItemText}>{item.name}</Text>
+                    </View>
+                ))}
+            </View>
+            <View style={styles.saleFooter}>
+                <Text style={styles.saleActionText}>Tap to add to cart</Text>
+                <Ionicons name="arrow-forward" size={20} color="white" />
+            </View>
+          </LinearGradient>
         </TouchableOpacity>
       )}
-      <Text style={styles.welcomeText}>Welcome, {userData?.username || auth.currentUser.email}</Text>
-      {activeSubAccount && <Text style={styles.emailText}>Using: {activeSubAccount}</Text>}
-      <TouchableOpacity onPress={() => navigation.navigate('Order')} style={styles.button}>
-        <Text style={styles.buttonText}>CREATE NEW ORDER</Text>
-      </TouchableOpacity>
-    </View>
+
+      <Card style={styles.card} mode="outlined">
+        <Card.Content style={styles.cardContent}>
+            <Ionicons name="add-circle-outline" size={48} color="#007AFF" />
+            <Text variant="titleMedium" style={styles.cardTitle}>Ready to Order?</Text>
+            <Button 
+                icon="arrow-right"
+                mode="contained" 
+                onPress={() => navigation.navigate('Order')}
+                style={{marginTop: 15}}
+            >
+                Create New Order
+            </Button>
+        </Card.Content>
+      </Card>
+      {/* --- MODIFICATION: Add the new AI Assistant card here --- */}
+            <Card style={styles.card} mode="outlined" onPress={() => navigation.navigate('Chat')}>
+                <Card.Content style={styles.cardContent}>
+                    <Ionicons name="chatbubbles-outline" size={48} color="#5856D6" />
+                    <Text variant="titleMedium" style={styles.cardTitle}>AI Assistant</Text>
+                    <Text variant="bodySmall" style={{textAlign: 'center', marginTop: 5}}>Generate reports and get help with your orders.</Text>
+                </Card.Content>
+            </Card>
+
+  
+
+
+    </ScrollView>
   );
 };
 export default HomeScreen;
 
+// --- MODIFICATION 3: Styles are updated for the new gradient card ---
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  container: { backgroundColor: '#F5F5F7', padding: 15, flexGrow: 1 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  welcomeText: { fontSize: 32, fontWeight: 'bold', color: '#1D1D1F' },
-  emailText: { fontSize: 16, color: '#8A8A8E', marginBottom: 40, marginTop: 5, textAlign: 'center' },
-  pickerButton: { width: '100%', backgroundColor: '#007AFF', padding: 15, borderRadius: 10, alignItems: 'center' },
-  pickerButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
-  continueButton: { marginTop: 15 },
-  continueButtonText: { color: '#007AFF', fontSize: 16 },
-  button: { width: '100%', backgroundColor: '#007AFF', padding: 15, borderRadius: 10, alignItems: 'center', marginTop: 20 },
-  buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
-  saleBox: { width: '100%', backgroundColor: '#E8F5E9', borderWidth: 2, borderColor: '#C8E6C9', borderRadius: 12, padding: 15, marginBottom: 30 },
-  saleHeader: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#A5D6A7', paddingBottom: 10, marginBottom: 10 },
-  saleTitle: { fontSize: 18, fontWeight: '600', color: '#1B5E20', marginLeft: 10 },
-  saleItemsContainer: { marginBottom: 10 },
-  saleItemText: { fontSize: 16, color: '#388E3C', paddingVertical: 3 },
-  saleActionText: { fontSize: 14, fontWeight: 'bold', color: '#2E7D32', textAlign: 'center', marginTop: 5 },
+  welcomeText: { marginBottom: 5, fontWeight: 'bold' },
+  subAccountText: { color: 'gray', marginBottom: 20 },
+  card: { marginBottom: 20 },
+  cardContent: { alignItems: 'center', paddingVertical: 20 },
+  cardTitle: { marginTop: 10 },
+  // New styles for the sale section
+  saleContainer: {
+    borderRadius: 16,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.30,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  gradient: {
+    borderRadius: 16,
+    padding: 20,
+  },
+  saleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomColor: 'rgba(255, 255, 255, 0.3)',
+    borderBottomWidth: 1,
+    paddingBottom: 15,
+    marginBottom: 15,
+  },
+  saleTitle: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+  saleItemsList: {
+    marginBottom: 15,
+  },
+  saleItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+  },
+  saleItemText: {
+    color: 'white',
+    fontSize: 16,
+    marginLeft: 10,
+  },
+  saleFooter: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 10,
+    marginTop: 5,
+    borderTopColor: 'rgba(255, 255, 255, 0.3)',
+    borderTopWidth: 1,
+  },
+  saleActionText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 8,
+  },
 });
