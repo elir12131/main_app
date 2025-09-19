@@ -1,4 +1,3 @@
-// File: components/TypingIndicator.js
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { MotiView } from 'moti';
@@ -33,7 +32,7 @@ const styles = StyleSheet.create({
   aiCard: { 
     marginVertical: 5, 
     maxWidth: '25%', 
-    borderRadius: 16,
+    borderRadius: 18,
     alignSelf: 'flex-start', 
     backgroundColor: 'white' 
   },

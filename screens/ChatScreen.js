@@ -1,6 +1,6 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { StyleSheet, View, KeyboardAvoidingView, Platform, FlatList, TouchableOpacity, Dimensions, Modal, TouchableWithoutFeedback } from 'react-native';
-import { TextInput, Text, Card, useTheme, IconButton, ActivityIndicator, List, Divider } from 'react-native-paper';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import { StyleSheet, View, KeyboardAvoidingView, Platform, FlatList, TouchableOpacity, Dimensions, Modal } from 'react-native';
+import { TextInput, Text, Card, useTheme, IconButton, ActivityIndicator, List, Divider, Button } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotiView } from 'moti';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
@@ -8,7 +8,6 @@ import { db, auth } from '../firebase';
 import TypingIndicator from '../components/TypingIndicator';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
-// Helper components are defined outside for stability and performance
 const SuggestionButton = ({ text, onPress }) => (
     <TouchableOpacity onPress={onPress}>
         <MotiView
@@ -39,8 +38,9 @@ const ChatScreen = () => {
     const [activeContext, setActiveContext] = useState(null);
     const [isModalVisible, setModalVisible] = useState(false);
     const [modalData, setModalData] = useState([]);
-    const [modalType, setModalType] = useState('');
+    const [modalType, setModalType] = useState(null);
     const [modalLoading, setModalLoading] = useState(false);
+    const [productSearch, setProductSearch] = useState('');
 
     const flatListRef = useRef();
     const theme = useTheme();
@@ -71,8 +71,8 @@ const ChatScreen = () => {
 
     const openDataPicker = useCallback(async (type) => {
         setModalType(type);
-        setModalVisible(true);
         setModalLoading(true);
+        setProductSearch('');
         try {
             let data = [];
             const currentUser = auth.currentUser;
@@ -95,7 +95,7 @@ const ChatScreen = () => {
     }, []);
 
     const handleDataSelect = useCallback((item) => {
-        setModalVisible(false);
+        closeModal();
         if (modalType === 'orders') {
             setActiveContext({ type: 'order', id: item.id });
             const userMsg = { id: Date.now().toString(), text: `Order #${item.publicOrderId}`, sender: 'user' };
@@ -114,12 +114,26 @@ const ChatScreen = () => {
         </MotiView>
     ), [theme]);
 
+    const filteredModalData = useMemo(() => {
+        if (modalType === 'products' && productSearch) {
+            return modalData.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()));
+        }
+        return modalData;
+    }, [productSearch, modalData, modalType]);
+
+    const closeModal = () => {
+        setModalVisible(false);
+        setTimeout(() => {
+            setModalType(null);
+        }, 300); // Delay to allow animation to finish
+    };
+
     return (
         <>
             <KeyboardAvoidingView
                 style={styles.container}
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
-                keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 100}
+                keyboardVerticalOffset={90}
             >
                 <FlatList
                     ref={flatListRef}
@@ -132,16 +146,18 @@ const ChatScreen = () => {
                 />
                 <View style={[styles.inputContainer, { paddingBottom: insets.bottom }]}>
                     <View style={styles.inputRow}>
-                        <IconButton icon="briefcase-outline" size={24} onPress={() => openDataPicker('orders')} />
-                        <IconButton icon="tag-outline" size={24} onPress={() => openDataPicker('products')} />
-                        <TextInput
-                            style={styles.textInput}
-                            value={inputText}
-                            onChangeText={setInputText}
-                            placeholder="Ask anything..."
-                            multiline
-                            disabled={isLoading}
-                        />
+                        <IconButton icon="plus-circle-outline" size={28} onPress={() => setModalVisible(true)} />
+                        <View style={styles.textInputWrapper}>
+                            <TextInput
+                                style={styles.textInput}
+                                value={inputText}
+                                onChangeText={setInputText}
+                                placeholder="Ask anything..."
+                                multiline
+                                disabled={isLoading}
+                                contentStyle={{ paddingTop: 0, paddingBottom: 0}}
+                            />
+                        </View>
                         <IconButton icon="send" mode="contained" size={24} onPress={() => handleSend()} disabled={isLoading} />
                     </View>
                 </View>
@@ -151,29 +167,65 @@ const ChatScreen = () => {
                 animationType="slide"
                 transparent={true}
                 visible={isModalVisible}
-                onRequestClose={() => setModalVisible(false)}
+                onRequestClose={closeModal}
             >
-                <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
-                    <View style={styles.modalOverlay} />
-                </TouchableWithoutFeedback>
-                <View style={[styles.modalContent, { paddingBottom: insets.bottom }]}>
-                    <Text variant="headlineSmall" style={styles.modalTitle}>
-                        Select {modalType === 'orders' ? 'an Order' : 'a Product'}
-                    </Text>
-                    {modalLoading ? <ActivityIndicator animating={true} size="large" /> : (
-                        <FlatList
-                            data={modalData}
-                            keyExtractor={item => item.id}
-                            renderItem={({ item }) => (
-                                <List.Item
-                                    title={modalType === 'orders' ? `Order #${item.publicOrderId}` : item.name}
-                                    description={modalType === 'orders' && item.createdAt ? new Date(item.createdAt.seconds * 1000).toLocaleDateString() : null}
-                                    onPress={() => handleDataSelect(item)}
-                                />
-                            )}
-                            ItemSeparatorComponent={Divider}
-                        />
-                    )}
+                <TouchableOpacity
+                    style={StyleSheet.absoluteFill}
+                    activeOpacity={1}
+                    onPressOut={closeModal}
+                />
+                <View style={styles.modalContentContainer}>
+                    <View style={[styles.modalContent, { paddingBottom: insets.bottom }]}>
+                        <View style={styles.modalHeader}>
+                            <View style={styles.modalHandle} />
+                            <IconButton 
+                                icon="close-circle" 
+                                size={30} 
+                                onPress={closeModal}
+                                style={styles.closeButton}
+                            />
+                        </View>
+                        
+                        {modalType ? (
+                            <>
+                                <View style={styles.modalTitleContainer}>
+                                    <IconButton icon="arrow-left" onPress={() => setModalType(null)} style={styles.backButton} />
+                                    <Text variant="headlineSmall" style={styles.modalTitle}>
+                                        Select {modalType === 'orders' ? 'an Order' : 'a Product'}
+                                    </Text>
+                                    <View style={{width: 40}} /> 
+                                </View>
+                                {modalType === 'products' && (
+                                    <TextInput value={productSearch} onChangeText={setProductSearch} placeholder="Search products..." style={styles.modalSearchInput} mode="outlined" dense />
+                                )}
+                                {modalLoading ? <ActivityIndicator animating={true} size="large" style={{flex: 1}} /> : (
+                                    <FlatList
+                                        style={styles.modalList}
+                                        data={filteredModalData}
+                                        keyExtractor={item => item.id}
+                                        renderItem={({ item }) => (
+                                            <List.Item
+                                                title={modalType === 'orders' ? `Order #${item.publicOrderId}` : item.name}
+                                                description={modalType === 'orders' && item.createdAt ? new Date(item.createdAt.seconds * 1000).toLocaleDateString() : null}
+                                                onPress={() => handleDataSelect(item)}
+                                            />
+                                        )}
+                                        ItemSeparatorComponent={Divider}
+                                        ListEmptyComponent={<Text style={styles.emptyListText}>No items found.</Text>}
+                                    />
+                                )}
+                            </>
+                        ) : (
+                            <View style={styles.choiceContainer}>
+                                <Button mode="contained-tonal" icon="briefcase-outline" style={styles.choiceButton} labelStyle={styles.choiceButtonLabel} onPress={() => openDataPicker('orders')}>
+                                    Select an Order
+                                </Button>
+                                <Button mode="contained-tonal" icon="tag-outline" style={styles.choiceButton} labelStyle={styles.choiceButtonLabel} onPress={() => openDataPicker('products')}>
+                                    Select a Product
+                                </Button>
+                            </View>
+                        )}
+                    </View>
                 </View>
             </Modal>
         </>
@@ -188,9 +240,28 @@ const styles = StyleSheet.create({
     messageCard: { marginVertical: 5, maxWidth: '80%', borderRadius: 18 },
     aiCard: { alignSelf: 'flex-start', backgroundColor: 'white' },
     userCard: { alignSelf: 'flex-end', backgroundColor: '#007AFF' },
-    inputContainer: { paddingHorizontal: 10, paddingTop: 10, backgroundColor: 'white', borderTopColor: '#dedede', borderTopWidth: 1 },
+    inputContainer: { 
+        paddingHorizontal: 10, 
+        paddingTop: 10, 
+        backgroundColor: 'white', 
+        borderTopColor: '#dedede', 
+        borderTopWidth: 1,
+    },
     inputRow: { flexDirection: 'row', alignItems: 'center' },
-    textInput: { flex: 1, backgroundColor: '#F0F0F0', borderRadius: 20, paddingHorizontal: 15, paddingTop: 8, paddingBottom: 8, borderWidth: 0, },
+    textInputWrapper: {
+        flex: 1,
+        backgroundColor: '#F0F0F0',
+        borderRadius: 20,
+        marginHorizontal: 8,
+        paddingHorizontal: 15,
+        justifyContent: 'center',
+    },
+    textInput: {
+        backgroundColor: 'transparent',
+        minHeight: 40,
+        maxHeight: 120,
+        paddingVertical: 0,
+    },
     suggestionsContainer: { padding: 15, alignItems: 'center' },
     suggestionButton: {
         backgroundColor: 'white',
@@ -202,24 +273,74 @@ const styles = StyleSheet.create({
         borderColor: '#E0E0E0',
     },
     suggestionText: { textAlign: 'center', fontWeight: '500' },
-    modalOverlay: {
-        position: 'absolute',
-        top: 0,
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)'
+    modalContentContainer: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.5)',
     },
     modalContent: {
-        position: 'absolute',
-        bottom: 0,
         width: '100%',
         backgroundColor: 'white',
-        paddingTop: 22,
+        paddingTop: 12,
         paddingHorizontal: 22,
         borderTopRightRadius: 20,
         borderTopLeftRadius: 20,
-        height: Dimensions.get('window').height * 0.6,
+        height: Dimensions.get('window').height * 0.7,
     },
-    modalTitle: { marginBottom: 12, textAlign: 'center' }
+    modalHeader: {
+        width: '100%',
+        alignItems: 'center',
+        position: 'relative',
+    },
+    modalHandle: {
+        width: 40,
+        height: 5,
+        backgroundColor: '#E0E0E0',
+        borderRadius: 2.5,
+        marginBottom: 10,
+    },
+    closeButton: {
+        position: 'absolute',
+        right: -15,
+        top: -5,
+        zIndex: 1,
+    },
+    modalTitleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: '100%',
+    },
+    backButton: {
+        // No extra styles needed, default IconButton is fine
+    },
+    modalTitle: { 
+        flex: 1,
+        textAlign: 'center'
+    },
+    modalSearchInput: {
+        width: '100%',
+        marginBottom: 10,
+    },
+    modalList: {
+        width: '100%',
+    },
+    emptyListText: {
+        textAlign: 'center',
+        marginTop: 20,
+        color: 'gray',
+    },
+    choiceContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    choiceButton: {
+        width: '80%',
+        marginVertical: 10,
+        paddingVertical: 8,
+    },
+    choiceButtonLabel: {
+        fontSize: 16,
+    }
 });

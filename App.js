@@ -9,9 +9,10 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { SubAccountProvider } from './context/temp_context';
-// --- MODIFICATION 1: Import SafeAreaProvider and use SafeAreaView/hook from the same library ---
+// --- MODIFICATION: Import SafeAreaView from 'react-native-safe-area-context' ---
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from './theme';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // --- Screen Imports ---
 import LoginScreen from './screens/LoginScreen';
@@ -29,8 +30,11 @@ import TrucksScreen from './screens/TrucksScreen';
 import TruckDetailScreen from './screens/TruckDetailScreen';
 import ChatScreen from './screens/ChatScreen';
 
+
 const Stack = createNativeStackNavigator();
 const Tab = createMaterialTopTabNavigator();
+
+// ... The rest of your App.js file remains exactly the same
 
 function SuperUserTabs() {
   const insets = useSafeAreaInsets();
@@ -125,34 +129,36 @@ export default function App() {
 
   return (
     // --- MODIFICATION 2: Wrap the ENTIRE app in SafeAreaProvider ---
-    <SafeAreaProvider>
-      <PaperProvider theme={theme}>
-          <SubAccountProvider>
-              <NavigationContainer>
-                  <Stack.Navigator screenOptions={{ headerShown: false }}>
-                  {user ? (
-                      <>
-                      <Stack.Screen name="MainApp" component={userData?.isSuperUser ? SuperUserTabs : MainAppTabs} />
-                      <Stack.Screen name="Order" component={OrderScreen} options={{ presentation: 'modal', title: 'Create New Order', headerShown: true }} />
-                      <Stack.Screen name="Account" component={AccountScreen} options={{ headerShown: true }} />
-                      <Stack.Screen name="Support" component={SupportScreen} options={{ headerShown: true }} />
-                      <Stack.Screen name="SubAccountPicker" component={SubAccountPickerScreen} options={{ title: "Select Customer", headerShown: true }}/>
-                      <Stack.Screen name="TruckDetail" component={TruckDetailScreen} options={{ headerShown: true }} />
-                      <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} options={{ title: 'Manage Customer', headerShown: true }} />
-                      <Stack.Screen name="Chat" component={ChatScreen} options={{ title: 'AI Assistant', headerShown: true }} />
-                      </>
-                  ) : (
-                      <>
-                      <Stack.Screen name="Login" component={LoginScreen} />
-                      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Reset Password', headerShown: true }} />
-                      <Stack.Screen name="Support" component={SupportScreen} options={{ headerShown: true }} />
-                      </>
-                  )}
-                  </Stack.Navigator>
-              </NavigationContainer>
-          </SubAccountProvider>
-      </PaperProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}> 
+      <SafeAreaProvider>
+        <PaperProvider theme={theme}>
+            <SubAccountProvider>
+                <NavigationContainer>
+                    <Stack.Navigator screenOptions={{ headerShown: false }}>
+                    {user ? (
+                        <>
+                        <Stack.Screen name="MainApp" component={userData?.isSuperUser ? SuperUserTabs : MainAppTabs} />
+                        <Stack.Screen name="Order" component={OrderScreen} options={{ presentation: 'modal', title: 'Create New Order', headerShown: true }} />
+                        <Stack.Screen name="Account" component={AccountScreen} options={{ headerShown: true }} />
+                        <Stack.Screen name="Support" component={SupportScreen} options={{ headerShown: true }} />
+                        <Stack.Screen name="SubAccountPicker" component={SubAccountPickerScreen} options={{ title: "Select Customer", headerShown: true }}/>
+                        <Stack.Screen name="TruckDetail" component={TruckDetailScreen} options={{ headerShown: true }} />
+                        <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} options={{ title: 'Manage Customer', headerShown: true }} />
+                        <Stack.Screen name="Chat" component={ChatScreen} options={{ title: 'AI Assistant', headerShown: true }} />
+                        </>
+                    ) : (
+                        <>
+                        <Stack.Screen name="Login" component={LoginScreen} />
+                        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Reset Password', headerShown: true }} />
+                        <Stack.Screen name="Support" component={SupportScreen} options={{ headerShown: true }} />
+                        </>
+                    )}
+                    </Stack.Navigator>
+                </NavigationContainer>
+            </SubAccountProvider>
+        </PaperProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
